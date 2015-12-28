@@ -1,1 +1,1 @@
-# TODO: write code
+require 'game'
