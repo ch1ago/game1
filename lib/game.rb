@@ -62,6 +62,10 @@ module Sample
   #####   ####  #    # #    # #    # #    # #####   ####
 
   module Commands
+
+    class InputError < GameError
+    end
+
     class Factory
 
       class NotFoundError < GameError
@@ -81,7 +85,6 @@ module Sample
 
     class Echo
       def run(input, state)
-        output = input
         [input, state]
       end
     end
@@ -92,9 +95,27 @@ module Sample
 
       def run(input, state)
         check_unstarted!(state)
+        check_input!(input)
 
-        state = StateFactory.fab
         output = "started!"
+
+        # new state template
+        state = {
+          players_order: [],
+          players: {},
+          commands: {},
+          board: {},
+        }
+
+        # fill state template
+        input[:players].each do |pid, phash|
+          state[:players_order] << pid
+          state[:players][pid] = phash
+          state[:board][pid]   = nil
+        end
+
+        # determine next turn
+        state[:commands] = {'H1' => ['RollDice']} # next turn, untested
 
         [output, state]
       end
@@ -104,6 +125,16 @@ module Sample
       def check_unstarted!(state)
         state.nil? or raise AlreadyStartedError
       end
+
+      def check_input!(input)
+        if input.keys != expected_input_keys
+          raise InputError, "expected keys '#{expected_input_keys}',\t found keys: #{input.keys}"
+        end
+      end
+
+      def expected_input_keys
+        [:command, :players]
+      end
     end
 
     class RollDice
@@ -112,27 +143,35 @@ module Sample
 
         d = Dice.roll(2)
 
-        output << "#{input[:player]} rolled 2d6: #{d.join(', ')}"
+        output << "#{input[:player]} rolled 2d6: #{d.join(', ')}."
 
         state[:board][input[:player]] = d
-        state[:commands] = {'H2' => ['RollDice']}
+        # has_two_equal_dice = d.uniq.size==1
+        # if has_two_equal_dice
+        #  output << "Explosion, roll again!"
+        # else
+        state[:commands] = {'H1' => ['EndTurn']} # untested
+        # end
 
         [output, state]
       end
     end
-  end
 
-  class StateFactory
-    def self.fab
-      {
-        commands: {
-          'H1' => ['RollDice'],
-        },
-        board: {
-          'H1' => nil,
-          'H2' => nil,
-        },
-      }
+    class EndTurn
+      def run(input, state)
+        output = []
+
+        player_id = input[:player]
+        state[:commands][player_id] = []
+        output << "#{player_id} has ended their turn."
+
+        # next_player_id = input[:player] + 1
+        next_player_id = "H2"
+        output << "#{next_player_id}, now it is your turn."
+        state[:commands][next_player_id] = ['RollDice']
+
+        [output, state]
+      end
     end
   end
 

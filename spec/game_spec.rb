@@ -1,5 +1,17 @@
 require 'spec_helper'
 
+GOOD_START_COMMAND_PLAYERS_INPUT = {
+  'H1' => {brain: :human, color: :blue},
+  'H2' => {brain: :human, color: :red},
+  'R3' => {brain: :robot, color: :green},
+}
+
+BAD_START_COMMAND_INPUT  = {command: 'Start'}
+GOOD_START_COMMAND_INPUT = {
+  command: 'Start',
+  players: GOOD_START_COMMAND_PLAYERS_INPUT
+}
+
 module Sample
 RSpec.describe "The Game" do
 
@@ -119,7 +131,7 @@ RSpec.describe "The Game" do
           end
 
           describe "with 'Start'" do
-            subject { Commands::Factory.fab(command: 'Start') }
+            subject { Commands::Factory.fab(GOOD_START_COMMAND_INPUT) }
 
             it('returns a Start command') { expect(subject).to be_a(Commands::Start) }
           end
@@ -183,42 +195,47 @@ RSpec.describe "The Game" do
       describe "Command Start" do
         before do
           expect {
-            expect( subject.input({command: 'Start'}) ).to eq('started!')
+            expect( subject.input(GOOD_START_COMMAND_INPUT) ).to eq('started!')
           }.to change { subject.state }.from(nil) #.to({})
         end
 
         it "called first time, returns started, sets first state" do
+          expect(subject.state.keys).to match_array([:players_order, :players, :commands, :board])
+          expect(subject.state[:players_order]).to eq(["H1", "H2", "R3"])
+          expect(subject.state[:players]).to       eq(GOOD_START_COMMAND_PLAYERS_INPUT)
+          expect(subject.state[:commands]).to      eq({"H1"=>["RollDice"]})
+          expect(subject.state[:board]).to         eq({"H1"=>nil, "H2"=>nil, "R3"=>nil})
         end
 
         it "called second, raises error, does not change state" do
           expect {
-            expect { subject.input({command: 'Start'}) }.to raise_error(Commands::Start::AlreadyStartedError)
+            expect { subject.input(GOOD_START_COMMAND_INPUT) }.to raise_error(Commands::Start::AlreadyStartedError)
           }.not_to change { subject.state }
         end
       end
 
       describe "Command RollDice" do
         before do
-          expect( subject.input({command: 'Start'}) ).to eq('started!')
+          expect( subject.input(GOOD_START_COMMAND_INPUT) ).to eq('started!')
           expect( Dice ).to receive(:roll).and_return([1,2])
         end
 
         let(:input) { {command: 'RollDice', player: "H1"} }
 
         it "changes the state of the board" do
-          new_board = {"H1"=>[1, 2], "H2"=>nil}
+          new_board = {"H1"=>[1, 2], "H2"=>nil, "R3"=>nil}
 
           expect { subject.input(input) }.to change { subject.state[:board] }.to(new_board)
         end
 
         it "changes the state of the commands" do
-          new_commands = {"H2"=>["RollDice"]}
+          new_commands = {"H1"=>["EndTurn"]}
 
           expect { subject.input(input) }.to change { subject.state[:commands] }.to(new_commands)
         end
 
         it "outputs the roll result" do
-          expect( subject.input(input) ).to include("H1 rolled 2d6: 1, 2")
+          expect( subject.input(input) ).to include("H1 rolled 2d6: 1, 2.")
         end
 
         # it "" do
