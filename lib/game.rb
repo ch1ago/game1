@@ -6,8 +6,32 @@ module Sample
   end
 
 
+  # Controller:
+  # constructor(state): receives a state, which may be nil
+  # state: returns the state
+  # input(hash):
+  #   - receives a Hash with command instructions
+  #   - fabricates the Command instance
+  #   - delegates it's execution to the model
+  #   - changes its 'state'
+  #   - returns 'output'
 
 
+  # Model:
+  # constructor(state): receives a state, which may be nil
+  # state: returns the 'state'
+  # run(command):
+  #   - receives a 'command'
+  #   - delegates to the 'command'
+  #   - changes its 'state'
+  #   - returns 'output'
+
+  # Command:
+  # constructor: receives the 'input', a hash with instructions the implementation will consume
+  # run(state):
+  #   - receives the 'state'
+  #   - changes the 'state' using 'input'
+  #   - returns 'output'
 
   #####
  #     #  ####  #    # ##### #####   ####  #      #      ###### #####
@@ -18,37 +42,65 @@ module Sample
   #####   ####  #    #   #   #    #  ####  ###### ###### ###### #    #
 
   class Controller
+    extend Forwardable
 
     class NotStartedError < GameError
     end
 
-    attr_reader :state
+    def_delegator :@model, :state
 
     def initialize(state)
-      @state = state
+      @model = Model.new(state)
     end
 
+    # def state
+    #   @model.state # dup.freeze ???
+    # end
 
     def input(command_hash={})
       check_allowed!(command_hash)
 
       command = Commands::Factory.fab(command_hash)
-      result = command.run(state)
-
-      @state = result[1]
-      return result[0]
+      return @model.run(command)
     end
 
     private
 
     def check_allowed!(command_data)
-      if @state.nil? && command_data[:command] != 'Start'
+      if @model.stateless? && command_data[:command] != 'Start'
         raise NotStartedError
       end
     end
 
   end
 
+ #     #
+ ##   ##  ####  #####  ###### #
+ # # # # #    # #    # #      #
+ #  #  # #    # #    # #####  #
+ #     # #    # #    # #      #
+ #     # #    # #    # #      #
+ #     #  ####  #####  ###### ######
+
+  # due to delegation, no need to test model yet
+  class Model
+    attr_reader :state
+
+    def initialize(state)
+      @state = state
+    end
+
+    def stateless?
+      state.nil?
+    end
+
+    def run(command)
+      result = command.run(state)
+      @state = result[1]
+      return result[0]
+    end
+
+  end
 
 
 
