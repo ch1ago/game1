@@ -9,7 +9,7 @@ module Sample
   # Controller:
   # constructor(state): receives a state, which may be nil
   # state: returns the state
-  # input(hash):
+  # execute(params):
   #   - receives a Hash with command instructions
   #   - fabricates the Command instance
   #   - delegates it's execution to the model
@@ -20,17 +20,17 @@ module Sample
   # Model:
   # constructor(state): receives a state, which may be nil
   # state: returns the 'state'
-  # run(command):
+  # execute(command):
   #   - receives a 'command'
   #   - delegates to the 'command'
   #   - changes its 'state'
   #   - returns 'output'
 
   # Command:
-  # constructor: receives the 'input', a hash with instructions the implementation will consume
-  # run(state):
+  # constructor: receives the 'params', a hash with instructions the implementation will consume
+  # execute(state):
   #   - receives the 'state'
-  #   - changes the 'state' using 'input'
+  #   - changes the 'state' using 'params'
   #   - returns 'output'
 
   #####
@@ -57,17 +57,17 @@ module Sample
     #   @model.state # dup.freeze ???
     # end
 
-    def input(command_hash={})
-      check_allowed!(command_hash)
+    def execute(params={})
+      check_allowed!(params)
 
-      command = Commands::Factory.fab(command_hash)
-      return @model.run(command)
+      command = Commands::Factory.fab(params)
+      return @model.execute(command)
     end
 
     private
 
-    def check_allowed!(command_data)
-      if @model.stateless? && command_data[:command] != 'Start'
+    def check_allowed!(params)
+      if @model.stateless? && params[:command] != 'Start'
         raise NotStartedError
       end
     end
@@ -94,8 +94,8 @@ module Sample
       state.nil?
     end
 
-    def run(command)
-      result = command.run(state)
+    def execute(command)
+      result = command.execute(state)
       @state = result[1]
       return result[0]
     end
@@ -123,31 +123,31 @@ module Sample
       class NotFoundError < GameError
       end
 
-      def self.fab(input)
-        input.is_a?(Hash) or raise NotFoundError, "data input must be a Hash, got '#{input}':#{input.class} instead"
+      def self.fab(params)
+        params.is_a?(Hash) or raise NotFoundError, "data params must be a Hash, got '#{params}':#{params.class} instead"
 
-        klass = case input[:command]
+        klass = case params[:command]
         when 'Echo'     then Commands::Echo
         when 'Start'    then Commands::Start
         when 'RollDice' then Commands::RollDice
-        else raise NotFoundError, "Command was '#{input[:command]}' Not Found"
+        else raise NotFoundError, "Command was '#{params[:command]}' Not Found"
         end
 
-        klass.new(input)
+        klass.new(params)
       end
     end
 
     class Base
-      attr_reader :input
+      attr_reader :params
 
-      def initialize(input)
-        @input = input
+      def initialize(params)
+        @params = params
       end
     end
 
     class Echo < Base
-      def run(state)
-        [input, state]
+      def execute(state)
+        [params, state]
       end
     end
 
@@ -155,9 +155,9 @@ module Sample
       class AlreadyStartedError < GameError
       end
 
-      def run(state)
+      def execute(state)
         check_unstarted!(state)
-        check_input!(input)
+        check_params!(params)
 
         output = "started!"
 
@@ -170,7 +170,7 @@ module Sample
         }
 
         # fill state template
-        input[:players].each do |pid, phash|
+        params[:players].each do |pid, phash|
           state[:players_order] << pid
           state[:players][pid] = phash
           state[:board][pid]   = nil
@@ -188,26 +188,26 @@ module Sample
         state.nil? or raise AlreadyStartedError
       end
 
-      def check_input!(input)
-        if input.keys != expected_input_keys
-          raise InputError, "expected keys '#{expected_input_keys}',\t found keys: #{input.keys}"
+      def check_params!(params)
+        if params.keys != expected_params_keys
+          raise InputError, "expected keys '#{expected_params_keys}',\t found keys: #{params.keys}"
         end
       end
 
-      def expected_input_keys
+      def expected_params_keys
         [:command, :players]
       end
     end
 
     class RollDice < Base
-      def run(state)
+      def execute(state)
         output = []
 
         d = Dice.roll(2)
 
-        output << "#{input[:player]} rolled 2d6: #{d.join(', ')}."
+        output << "#{params[:player]} rolled 2d6: #{d.join(', ')}."
 
-        state[:board][input[:player]] = d
+        state[:board][params[:player]] = d
         # has_two_equal_dice = d.uniq.size==1
         # if has_two_equal_dice
         #  output << "Explosion, roll again!"
@@ -220,14 +220,14 @@ module Sample
     end
 
     class EndTurn < Base
-      def run(state)
+      def execute(state)
         output = []
 
-        player_id = input[:player]
+        player_id = params[:player]
         state[:commands][player_id] = []
         output << "#{player_id} has ended their turn."
 
-        # next_player_id = input[:player] + 1
+        # next_player_id = params[:player] + 1
         next_player_id = "H2"
         output << "#{next_player_id}, now it is your turn."
         state[:commands][next_player_id] = ['RollDice']
