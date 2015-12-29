@@ -113,12 +113,26 @@ RSpec.describe "The Game" do
     describe Commands::Start do
       pending "Check Integration Tests"
     end
+
+    describe Commands::RollDice do
+      pending "Check Integration Tests"
+    end
   end
 
   describe "Integration Tests" do
     describe Controller do
 
       subject { Controller.new(nil) }
+
+      describe "Any Command" do
+        describe "called before Start" do
+          it 'raises Sample::Controller::NotStartedError' do
+            expect {
+              subject.input({command: 'Echo'})
+            }.to raise_error(Sample::Controller::NotStartedError)
+          end
+        end
+      end
 
       describe "Command Start" do
         before do
@@ -137,15 +151,29 @@ RSpec.describe "The Game" do
         end
       end
 
-      describe "Any Command" do
-        describe "called before Start" do
-          it 'raises ' do
-            expect {
-              subject.input({command: 'Echo'})
-            }.to raise_error(Sample::Controller::NotStartedError)
-          end
+      describe "Command RollDice" do
+        before do
+          expect( subject.input({command: 'Start'}) ).to eq('started!')
+          expect( Dice ).to receive(:roll).and_return([1,2])
         end
+
+        let(:input) { {command: 'RollDice', player: "H1"} }
+
+        it "changes the state" do
+          expect {
+            subject.input(input)
+          }.to change { subject.state[:last_roll] }.from(nil).to([1,2])
+        end
+
+        it "outputs the roll result" do
+          expect( subject.input(input) ).to include("H1 rolled 2d6: 1, 2")
+        end
+
+        # it "" do
+        # end
       end
+
+
     end
   end
 

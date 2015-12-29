@@ -1,1 +1,2 @@
 require 'game'
+require 'dice'

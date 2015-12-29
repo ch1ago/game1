@@ -73,6 +73,7 @@ module Sample
         case data[:command]
         when 'Echo'  then return Commands::Echo.new
         when 'Start' then return Commands::Start.new
+        when 'RollDice' then return Commands::RollDice.new
         else raise NotFoundError, "Command was '#{data[:command]}' Not Found"
         end
       end
@@ -105,13 +106,18 @@ module Sample
       end
     end
 
-    # class RollDice
-    #   def run(input, state)
-    #     output = "WIP !!! rolled 2d6"
+    class RollDice
+      def run(input, state)
+        d = Dice.roll(2)
+        output = []
 
-    #     [output, state]
-    #   end
-    # end
+        output << "#{input[:player]} rolled 2d6: #{d.join(', ')}"
+
+        state[:last_roll] = d
+
+        [output, state]
+      end
+    end
   end
 
   class StateFactory
