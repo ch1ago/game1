@@ -3,7 +3,24 @@ require 'spec_helper'
 module Sample
 RSpec.describe "The Game" do
 
+                #     #
+                #     # #    # # #####
+                #     # ##   # #   #
+ ##### #####    #     # # #  # #   #
+                #     # #  # # #   #
+                #     # #   ## #   #
+                 #####  #    # #   #
+
+
   describe "Unit Tests" do
+
+  #####
+ #     #  ####  #    # ##### #####   ####  #      #      ###### #####
+ #       #    # ##   #   #   #    # #    # #      #      #      #    #
+ #       #    # # #  #   #   #    # #    # #      #      #####  #    #
+ #       #    # #  # #   #   #####  #    # #      #      #      #####
+ #     # #    # #   ##   #   #   #  #    # #      #      #      #   #
+  #####   ####  #    #   #   #    #  ####  ###### ###### ###### #    #
 
     describe Controller do
 
@@ -77,47 +94,76 @@ RSpec.describe "The Game" do
 
     end
 
-    describe Commands::Factory do
-      describe ".fab" do
+  #####
+ #     #  ####  #    # #    #   ##   #    # #####   ####
+ #       #    # ##  ## ##  ##  #  #  ##   # #    # #
+ #       #    # # ## # # ## # #    # # #  # #    #  ####
+ #       #    # #    # #    # ###### #  # # #    #      #
+ #     # #    # #    # #    # #    # #   ## #    # #    #
+  #####   ####  #    # #    # #    # #    # #####   ####
 
-        describe "with 'blank'" do
-          subject { Commands::Factory.fab(command: '') }
+    describe "Commands" do
+      describe Commands::Factory do
+        describe ".fab" do
 
-          it('is invalid') { expect { subject }.to raise_error(Commands::Factory::NotFoundError) }
+          describe "with 'blank'" do
+            subject { Commands::Factory.fab(command: '') }
+
+            it('is invalid') { expect { subject }.to raise_error(Commands::Factory::NotFoundError) }
+          end
+
+          describe "with 'Echo'" do
+            subject { Commands::Factory.fab(command: 'Echo') }
+
+            it('returns a Echo command') { expect(subject).to be_a(Commands::Echo) }
+          end
+
+          describe "with 'Start'" do
+            subject { Commands::Factory.fab(command: 'Start') }
+
+            it('returns a Start command') { expect(subject).to be_a(Commands::Start) }
+          end
+
         end
-
-        describe "with 'Echo'" do
-          subject { Commands::Factory.fab(command: 'Echo') }
-
-          it('returns a Echo command') { expect(subject).to be_a(Commands::Echo) }
-        end
-
-        describe "with 'Start'" do
-          subject { Commands::Factory.fab(command: 'Start') }
-
-          it('returns a Start command') { expect(subject).to be_a(Commands::Start) }
-        end
-
       end
-    end
 
-    describe Commands::Echo do
-      describe '.run' do
-        let(:result) { subject.run(:input, :current_state) }
+      describe Commands::Echo do
+        describe '.run' do
+          let(:result) { subject.run(:input, :current_state) }
 
-        it('returns[0] (the output) as the same input data') { expect(result[0]).to eq(:input) }
-        it('returns[1] (the new state) as the same current state') { expect(result[1]).to eq(:current_state) }
+          it('returns[0] (the output) as the same input data') { expect(result[0]).to eq(:input) }
+          it('returns[1] (the new state) as the same current state') { expect(result[1]).to eq(:current_state) }
+        end
       end
-    end
 
-    describe Commands::Start do
-      pending "Check Integration Tests"
-    end
+      describe Commands::Start do
+        pending "Check Integration Tests"
+      end
 
-    describe Commands::RollDice do
-      pending "Check Integration Tests"
+      describe Commands::RollDice do
+        pending "Check Integration Tests"
+      end
     end
   end
+
+
+
+
+
+
+
+
+
+
+
+                ###
+                 #  #    # ##### ######  ####  #####    ##   ##### #  ####  #    #
+                 #  ##   #   #   #      #    # #    #  #  #    #   # #    # ##   #
+ ##### #####     #  # #  #   #   #####  #      #    # #    #   #   # #    # # #  #
+                 #  #  # #   #   #      #  ### #####  ######   #   # #    # #  # #
+                 #  #   ##   #   #      #    # #   #  #    #   #   # #    # #   ##
+                ### #    #   #   ######  ####  #    # #    #   #   #  ####  #    #
+
 
   describe "Integration Tests" do
     describe Controller do
@@ -138,7 +184,7 @@ RSpec.describe "The Game" do
         before do
           expect {
             expect( subject.input({command: 'Start'}) ).to eq('started!')
-          }.to change { subject.state }.from(nil).to({})
+          }.to change { subject.state }.from(nil) #.to({})
         end
 
         it "called first time, returns started, sets first state" do
@@ -159,10 +205,16 @@ RSpec.describe "The Game" do
 
         let(:input) { {command: 'RollDice', player: "H1"} }
 
-        it "changes the state" do
-          expect {
-            subject.input(input)
-          }.to change { subject.state[:last_roll] }.from(nil).to([1,2])
+        it "changes the state of the board" do
+          new_board = {"H1"=>[1, 2], "H2"=>nil}
+
+          expect { subject.input(input) }.to change { subject.state[:board] }.to(new_board)
+        end
+
+        it "changes the state of the commands" do
+          new_commands = {"H2"=>["RollDice"]}
+
+          expect { subject.input(input) }.to change { subject.state[:commands] }.to(new_commands)
         end
 
         it "outputs the roll result" do
@@ -176,6 +228,13 @@ RSpec.describe "The Game" do
 
     end
   end
+
+
+
+
+
+
+
 
   # describe Player do
   #   let(:controller) { Controller.new }

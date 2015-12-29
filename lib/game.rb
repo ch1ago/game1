@@ -108,12 +108,14 @@ module Sample
 
     class RollDice
       def run(input, state)
-        d = Dice.roll(2)
         output = []
+
+        d = Dice.roll(2)
 
         output << "#{input[:player]} rolled 2d6: #{d.join(', ')}"
 
-        state[:last_roll] = d
+        state[:board][input[:player]] = d
+        state[:commands] = {'H2' => ['RollDice']}
 
         [output, state]
       end
@@ -122,13 +124,15 @@ module Sample
 
   class StateFactory
     def self.fab
-      # {
-      #   commands: {
-      #     'P1' => ['RollDice']
-      #   }
-      # }
-
-      {}
+      {
+        commands: {
+          'H1' => ['RollDice'],
+        },
+        board: {
+          'H1' => nil,
+          'H2' => nil,
+        },
+      }
     end
   end
 
