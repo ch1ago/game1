@@ -141,7 +141,8 @@ RSpec.describe "The Game" do
 
       describe Commands::Echo do
         describe '.run' do
-          let(:result) { subject.run(:input, :current_state) }
+          subject { described_class.new(:input) }
+          let(:result) { subject.run(:current_state) }
 
           it('returns[0] (the output) as the same input data') { expect(result[0]).to eq(:input) }
           it('returns[1] (the new state) as the same current state') { expect(result[1]).to eq(:current_state) }

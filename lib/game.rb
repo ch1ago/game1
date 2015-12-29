@@ -29,11 +29,11 @@ module Sample
     end
 
 
-    def input(command_data={})
-      check_allowed!(command_data)
+    def input(command_hash={})
+      check_allowed!(command_hash)
 
-      command = Commands::Factory.fab(command_data)
-      result = command.run(command_data, state)
+      command = Commands::Factory.fab(command_hash)
+      result = command.run(state)
 
       @state = result[1]
       return result[0]
@@ -71,29 +71,39 @@ module Sample
       class NotFoundError < GameError
       end
 
-      def self.fab(data)
-        data.is_a?(Hash) or raise NotFoundError, "data input must be a Hash, got '#{data}':#{data.class} instead"
+      def self.fab(input)
+        input.is_a?(Hash) or raise NotFoundError, "data input must be a Hash, got '#{input}':#{input.class} instead"
 
-        case data[:command]
-        when 'Echo'  then return Commands::Echo.new
-        when 'Start' then return Commands::Start.new
-        when 'RollDice' then return Commands::RollDice.new
-        else raise NotFoundError, "Command was '#{data[:command]}' Not Found"
+        klass = case input[:command]
+        when 'Echo'     then Commands::Echo
+        when 'Start'    then Commands::Start
+        when 'RollDice' then Commands::RollDice
+        else raise NotFoundError, "Command was '#{input[:command]}' Not Found"
         end
+
+        klass.new(input)
       end
     end
 
-    class Echo
-      def run(input, state)
+    class Base
+      attr_reader :input
+
+      def initialize(input)
+        @input = input
+      end
+    end
+
+    class Echo < Base
+      def run(state)
         [input, state]
       end
     end
 
-    class Start
+    class Start < Base
       class AlreadyStartedError < GameError
       end
 
-      def run(input, state)
+      def run(state)
         check_unstarted!(state)
         check_input!(input)
 
@@ -137,8 +147,8 @@ module Sample
       end
     end
 
-    class RollDice
-      def run(input, state)
+    class RollDice < Base
+      def run(state)
         output = []
 
         d = Dice.roll(2)
@@ -157,8 +167,8 @@ module Sample
       end
     end
 
-    class EndTurn
-      def run(input, state)
+    class EndTurn < Base
+      def run(state)
         output = []
 
         player_id = input[:player]
