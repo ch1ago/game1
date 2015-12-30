@@ -258,7 +258,7 @@ RSpec.describe "The Game" do
         end
 
         it "changes the state of the commands" do
-          new_commands = {:player_id=>"H1", :round=>1, :commands=>["EndTurn"]}
+          new_commands = {:player_id=>"H1", :round=>1, :commands=>["SomethingMadeUp"]}
 
           expect { subject.execute(params) }.to change { subject.state[:turn] }.to(new_commands)
         end
@@ -268,12 +268,12 @@ RSpec.describe "The Game" do
         end
       end
 
-      describe "Command EndTurn" do
+      describe "Command SkipTurn" do
         before do
           expect( subject.execute(GOOD_START_COMMAND_INPUT) ).to include('Game Started!')
         end
 
-        let(:params) { {command: 'EndTurn', player: "H1"} }
+        let(:params) { {command: 'SkipTurn', player: "H1"} }
 
         it "outputs the end turn" do
           expect( subject.execute(params) ).to include("H1 has ended their turn.")
@@ -293,8 +293,26 @@ RSpec.describe "The Game" do
       describe "A Full Round" do
         it "Works" do
           expect( subject.execute(GOOD_START_COMMAND_INPUT) ).to include('Game Started!')
-          expect( subject.execute(command: 'EndTurn', player: "H1") ).to eq(["H1 has ended their turn.", "H2, now it is your turn."])
-          expect( subject.execute(command: 'EndTurn', player: "H2") ).to eq(["H2 has ended their turn.", "R3, now it is your turn.", "R3 is a mindless Robot!", "R3 doesn't know what to do!", "R3 has ended their turn.", "Round 1 has ended.", "Round 2 has started.", "H1, now it is your turn."])
+          expect( subject.execute(command: 'SkipTurn', player: "H1") ).to eq([
+            "H1 skipped their turn.",
+            "H1 rolled 2d6: 1, 1.",
+            "H1 has ended their turn.",
+            "H2, now it is your turn."
+          ])
+          expect( subject.execute(command: 'SkipTurn', player: "H2") ).to eq([
+            "H2 skipped their turn.",
+            "H2 rolled 2d6: 1, 1.",
+            "H2 has ended their turn.",
+            "R3, now it is your turn.",
+            "R3 is a brainless Robot!",
+            "R3 doesn't know what to do!",
+            "R3 skipped their turn.",
+            "R3 rolled 2d6: 1, 1.",
+            "R3 has ended their turn.",
+            "Round 1 has ended.",
+            "Round 2 has started.",
+            "H1, now it is your turn."
+          ])
         end
       end
 

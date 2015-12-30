@@ -83,7 +83,7 @@ module Sample
         when 'Echo'      then Commands::Echo
         when 'StartGame' then Commands::StartGame
         when 'RollDice'  then Commands::RollDice
-        when 'EndTurn'   then Commands::EndTurn
+        when 'SkipTurn'  then Commands::SkipTurn
         else raise NotFoundError, "Command was '#{string}' Not Found"
         end
       end
@@ -366,15 +366,15 @@ module Sample
 
         d = Dice.roll(2)
 
-        output << "#{@params[:player]} rolled 2d6: #{d.join(', ')}."
+        output << "#{@model.player_id} rolled 2d6: #{d.join(', ')}."
 
-        @model.state[:board][@params[:player]] = d
+        @model.state[:board][@model.player_id] = d
         # has_two_equal_dice = d.uniq.size==1
         # if has_two_equal_dice
         #  output << "Explosion, roll again!"
         # else
         # @model.state[:commands] = {'H1' => ['EndTurn']} # untested
-        @model.state[:turn][:commands] = ['EndTurn'] # untested
+        @model.state[:turn][:commands] = ['SomethingMadeUp'] # untested
         # end
 
         output
@@ -387,13 +387,27 @@ module Sample
       end
     end
 
+    class SkipTurn < Base2
+      def execute
+        output = []
+
+        d = [1, 1]
+
+        output << "#{@model.player_id} skipped their turn."
+        output << "#{@model.player_id} rolled 2d6: #{d.join(', ')}."
+        output += EndTurn.new(@model, {player: @model.player_id}).execute
+
+        output
+      end
+    end
+
     class PlayRobotTurn < Base2
       def execute
         output = []
 
-        output << "#{@model.player_id} is a mindless Robot!"
+        output << "#{@model.player_id} is a brainless Robot!"
         output << "#{@model.player_id} doesn't know what to do!"
-        output += EndTurn.new(@model, {player: @model.player_id}).execute
+        output += SkipTurn.new(@model, {player: @model.player_id}).execute
 
         output
       end
