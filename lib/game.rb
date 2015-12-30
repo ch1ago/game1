@@ -98,14 +98,18 @@ module Sample
 
   # due to delegation, no need to test model yet
   class Model
+    extend Forwardable
+
     attr_reader :state
 
-    def helper
-      @helper ||= Helper.new(state)
-    end
+    def_delegator :helper, :player_id
 
     def initialize(state)
       @state = state
+    end
+
+    def helper
+      @helper ||= Helper.new(state)
     end
 
     def stateless?
@@ -145,10 +149,13 @@ module Sample
     end
 
     def is_last_turn?
-      player_id     = @state[:turn][:player_id]
       player_index  = @state[:players_order].index(player_id)
       players_count = @state[:players_order].count
       player_index == players_count-1
+    end
+
+    def current_player_robot?
+      @state[:players][player_id][:brain] == :robot
     end
 
     class Helper
@@ -158,7 +165,6 @@ module Sample
       end
 
       def get_next_player_id
-        player_id     = @state[:turn][:player_id]
         player_index  = @state[:players_order].index(player_id)
         players_count = @state[:players_order].count
 
@@ -173,6 +179,10 @@ module Sample
 
       def get_first_player_id
         @state[:players_order].first
+      end
+
+      def player_id
+        @state[:turn][:player_id]
       end
     end
 
@@ -273,6 +283,10 @@ module Sample
         next_player_id = @model.move_to_next_turn
         output << "#{next_player_id}, now it is your turn."
 
+        if @model.current_player_robot?
+          output += PlayRobotTurn.new(@model, {}).execute
+        end
+
         output
       end
     end
@@ -328,6 +342,18 @@ module Sample
         # @model.state[:commands] = {'H1' => ['EndTurn']} # untested
         @model.state[:turn][:commands] = ['EndTurn'] # untested
         # end
+
+        output
+      end
+    end
+
+    class PlayRobotTurn < Base
+      def execute
+        output = []
+
+        output << "#{@model.player_id} is a mindless Robot!"
+        output << "#{@model.player_id} doesn't know what to do!"
+        output += EndTurn.new(@model, {player: @model.player_id}).execute
 
         output
       end
