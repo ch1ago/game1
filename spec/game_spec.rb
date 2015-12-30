@@ -197,11 +197,14 @@ RSpec.describe "The Game" do
         end
 
         it "called first time, returns started, sets first state" do
-          expect(subject.state.keys).to match_array([:players_order, :players, :commands, :board])
+          expect(subject.state.keys).to            match_array([:players_order, :players, :board, :turn])
           expect(subject.state[:players_order]).to eq(["H1", "H2", "R3"])
           expect(subject.state[:players]).to       eq(GOOD_START_COMMAND_PLAYERS_INPUT)
-          expect(subject.state[:commands]).to      eq({"H1"=>["RollDice"]})
           expect(subject.state[:board]).to         eq({"H1"=>nil, "H2"=>nil, "R3"=>nil})
+
+          expect(subject.state[:turn].keys).to        match_array([:player_id, :commands])
+          expect(subject.state[:turn][:player_id]).to eq("H1")
+          expect(subject.state[:turn][:commands]).to  eq(["RollDice"])
         end
 
         it "called second, raises error, does not change state" do
@@ -226,9 +229,9 @@ RSpec.describe "The Game" do
         end
 
         it "changes the state of the commands" do
-          new_commands = {"H1"=>["EndTurn"]}
+          new_commands = {:player_id=>"H1", :commands=>["EndTurn"]}
 
-          expect { subject.execute(params) }.to change { subject.state[:commands] }.to(new_commands)
+          expect { subject.execute(params) }.to change { subject.state[:turn] }.to(new_commands)
         end
 
         it "outputs the roll result" do
@@ -254,7 +257,7 @@ RSpec.describe "The Game" do
         it "determines the next player" do
           expect {
             subject.execute(params)
-          }.to change { subject.state[:commands] }.from("H1"=>["RollDice"]).to("H2"=>["RollDice"])
+          }.to change { subject.state[:turn] }.from(:player_id=>"H1", :commands=>["RollDice"]).to(:player_id=>"H2", :commands=>["RollDice"])
         end
       end
 

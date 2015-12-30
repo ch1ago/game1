@@ -87,6 +87,7 @@ module Sample
 
   end
 
+
  #     #
  ##   ##  ####  #####  ###### #
  # # # # #    # #    # #      #
@@ -98,6 +99,10 @@ module Sample
   # due to delegation, no need to test model yet
   class Model
     attr_reader :state
+
+    def helper
+      @helper ||= Helper.new(state)
+    end
 
     def initialize(state)
       @state = state
@@ -111,7 +116,12 @@ module Sample
       @state = {
         players_order: [],
         players: {},
-        commands: {},
+        turn: {
+          player_id: nil,
+          # context: 'Sort',
+          # round: 0,
+          commands: []
+        },
         board: {},
       }
     end
@@ -122,18 +132,39 @@ module Sample
       @state[:board][player_id]   = nil
     end
 
-    def determine_next_turn(foo)
-      if foo
-        next_player_id = "H1"
-        @state[:commands] = {next_player_id => ['RollDice']} # next turn, untested
-        next_player_id
-      else
-        # next_player_id = @params[:player] + 1
-        next_player_id = "H2"
-        @state[:commands] = {next_player_id => ['RollDice']}
-        next_player_id
+    def move_to_next_turn
+      next_player_id = helper.get_next_player_id
+
+      @state[:turn][:player_id] = next_player_id
+      @state[:turn][:commands] = ['RollDice']
+      next_player_id
+    end
+
+    class Helper
+      attr_reader :state
+      def initialize(state)
+        @state = state
+      end
+
+      def get_next_player_id
+        player_id     = @state[:turn][:player_id]
+        player_index  = @state[:players_order].index(player_id)
+        players_count = @state[:players_order].count
+
+        case
+        when player_index.nil?
+          @state[:players_order].first
+        when player_index == players_count-1 # last value
+          raise "foo #{player_index} #{players_count}"
+          # @state[:players_order].first
+          # EndRound
+          "B"
+        else
+          @state[:players_order][player_index+1]
+        end
       end
     end
+
   end
 
 
@@ -195,7 +226,7 @@ module Sample
 
         @params[:players].each { |pid, h| @model.add_player(pid, h) }
 
-        @model.determine_next_turn(true)
+        @model.move_to_next_turn
 
         output = "started!"
         output
@@ -231,7 +262,8 @@ module Sample
         # if has_two_equal_dice
         #  output << "Explosion, roll again!"
         # else
-        @model.state[:commands] = {'H1' => ['EndTurn']} # untested
+        # @model.state[:commands] = {'H1' => ['EndTurn']} # untested
+        @model.state[:turn][:commands] = ['EndTurn'] # untested
         # end
 
         output
@@ -245,7 +277,7 @@ module Sample
         player_id = @params[:player]
         output << "#{player_id} has ended their turn."
 
-        next_player_id = @model.determine_next_turn(false)
+        next_player_id = @model.move_to_next_turn
         output << "#{next_player_id}, now it is your turn."
 
         output
