@@ -215,16 +215,61 @@ module Sample
 
   module Commands
 
-    class InputError < GameError
-    end
+    module Validations
+      module Errors
+        class Input < GameError
+        end
 
-    class NotStartedError < GameError
-    end
+        class NotStarted < GameError
+        end
 
-    class NotYourTurnError < GameError
+        # untested
+        class NotYourTurn < GameError
+        end
+
+        class AlreadyStarted < GameError
+        end
+      end
+
+      module Methods
+        def validates_presence_of_params!(*param_keys)
+          if validates_presence_of_params(*param_keys)
+            raise Commands::Validations::Errors::Input, "expected params '#{param_keys}', but found #{@params.keys}"
+          end
+        end
+
+        def validates_presence_of_params(*param_keys)
+          @params.keys != param_keys
+        end
+
+        def validates_blankness_of(*values)
+          values.map(&:nil?).inject(:&)
+        end
+
+        def validates_presence_of(*values)
+          values = [true] + values
+          values.inject(:&)
+        end
+
+        def validates_equality_of(a, b)
+          !a.nil? && a == b
+        end
+
+        def validates_started!
+          validates_presence_of(@model.state) or raise Commands::Validations::Errors::NotStarted
+        end
+
+        def validates_turn! # untested
+          if not validates_equality_of(@params[:player], @model.player_id)
+            raise Commands::Validations::Errors::NotYourTurn, "#{@params[:player]}, this is #{@model.player_id} turn."
+          end
+        end
+      end
     end
 
     class Base
+      include Commands::Validations::Methods
+
       attr_reader :params
 
       def initialize(model, params)
@@ -235,47 +280,9 @@ module Sample
       def validate!
         # not implemented
       end
-
-      protected
-
-      def validates_presence_of_params!(*param_keys)
-        if validates_presence_of_params(*param_keys)
-          raise InputError, "expected params '#{param_keys}', but found #{@params.keys}"
-        end
-      end
-
-      def validates_presence_of_params(*param_keys)
-        @params.keys != param_keys
-      end
-
-      def validates_blankness_of(*values)
-        values.map(&:nil?).inject(:&)
-      end
-
-      def validates_presence_of(*values)
-        values = [true] + values
-        values.inject(:&)
-      end
-
-      def validates_equality_of(a, b)
-        !a.nil? && a == b
-      end
-    end
-
-    class Base2 < Base
-      def validate!
-        validates_presence_of(@model.state) or raise Commands::NotStartedError
-      end
-
-      def validate_turn! # untested
-        validates_equality_of(@params[:player], @model.player_id) or raise NotYourTurnError, "#{@params[:player]}, this is #{@model.player_id} turn."
-      end
     end
 
     class StartGame < Base
-      class AlreadyStartedError < GameError
-      end
-
       def execute
         @model.create_state_template
 
@@ -288,12 +295,12 @@ module Sample
       end
 
       def validate!
-        validates_blankness_of(@model.state) or raise AlreadyStartedError
+        validates_blankness_of(@model.state) or raise Commands::Validations::Errors::AlreadyStarted
         validates_presence_of_params! :command, :players
       end
     end
 
-    class StartRound < Base2
+    class StartRound < Base
       def execute
         output = []
         round_id = @model.state[:turn][:round].to_i
@@ -305,7 +312,7 @@ module Sample
       end
     end
 
-    class StartTurn < Base2
+    class StartTurn < Base
       def execute
         output = []
 
@@ -320,7 +327,7 @@ module Sample
       end
     end
 
-    class EndTurn < Base2
+    class EndTurn < Base
       def execute
         output = []
 
@@ -336,13 +343,13 @@ module Sample
       end
 
       def validate!
-        super
+        validates_started!
         validates_presence_of_params! :command, :player
-        validate_turn! # untested
+        validates_turn! # untested
       end
     end
 
-    class EndRound < Base2
+    class EndRound < Base
       def execute
         output = []
 
@@ -354,13 +361,17 @@ module Sample
       end
     end
 
-    class Echo < Base2
+    class Echo < Base
       def execute
         params
       end
+
+      def validate!
+        validates_started!
+      end
     end
 
-    class RollDice < Base2
+    class RollDice < Base
       def execute
         output = []
 
@@ -381,13 +392,13 @@ module Sample
       end
 
       def validate!
-        super
+        validates_started!
         validates_presence_of_params! :command, :player
-        validate_turn!
+        validates_turn!
       end
     end
 
-    class SkipTurn < Base2
+    class SkipTurn < Base
       def execute
         output = []
 
@@ -401,7 +412,7 @@ module Sample
       end
     end
 
-    class PlayRobotTurn < Base2
+    class PlayRobotTurn < Base
       def execute
         output = []
 

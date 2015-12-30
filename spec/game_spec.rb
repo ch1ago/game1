@@ -55,10 +55,10 @@ RSpec.describe "The Game" do
         end
 
         describe ".execute" do
-          it 'raises Commands::NotStartedError' do
+          it 'raises Commands::Validations::Errors::NotStarted' do
             expect {
               subject.execute(command: 'Echo')
-            }.to raise_error(Commands::NotStartedError)
+            }.to raise_error(Commands::Validations::Errors::NotStarted)
           end
         end
 
@@ -127,7 +127,7 @@ RSpec.describe "The Game" do
               describe "params is {command: 'StartGame'}" do
                 let (:params) { {command: 'StartGame'} }
 
-                it('is invalid') { expect { subject }.to raise_error(Commands::InputError) }
+                it('is invalid') { expect { subject }.to raise_error(Commands::Validations::Errors::Input) }
               end
 
               describe "params is {command: 'StartGame', players: []}" do
@@ -144,7 +144,7 @@ RSpec.describe "The Game" do
             describe "params is {command: 'StartGame'}" do
               let (:params) { {command: 'StartGame'} }
 
-              it('is invalid') { expect { subject }.to raise_error(Commands::StartGame::AlreadyStartedError) }
+              it('is invalid') { expect { subject }.to raise_error(Commands::Validations::Errors::AlreadyStarted) }
             end
           end
         end
@@ -209,10 +209,10 @@ RSpec.describe "The Game" do
 
       describe "Any Command" do
         describe "called before Start" do
-          it 'raises Commands::NotStartedError' do
+          it 'raises Commands::Validations::Errors::NotStarted' do
             expect {
               subject.execute({command: 'Echo'})
-            }.to raise_error(Commands::NotStartedError)
+            }.to raise_error(Commands::Validations::Errors::NotStarted)
           end
         end
       end
@@ -238,7 +238,7 @@ RSpec.describe "The Game" do
 
         it "called second, raises error, does not change state" do
           expect {
-            expect { subject.execute(GOOD_START_COMMAND_INPUT) }.to raise_error(Commands::StartGame::AlreadyStartedError)
+            expect { subject.execute(GOOD_START_COMMAND_INPUT) }.to raise_error(Commands::Validations::Errors::AlreadyStarted)
           }.not_to change { subject.state }
         end
       end
