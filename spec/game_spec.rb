@@ -6,9 +6,9 @@ GOOD_START_COMMAND_PLAYERS_INPUT = {
   'R3' => {brain: :robot, color: :green},
 }
 
-BAD_START_COMMAND_INPUT  = {command: 'Start'}
+BAD_START_COMMAND_INPUT  = {command: 'StartGame'}
 GOOD_START_COMMAND_INPUT = {
-  command: 'Start',
+  command: 'StartGame',
   players: GOOD_START_COMMAND_PLAYERS_INPUT
 }
 
@@ -124,10 +124,10 @@ RSpec.describe "The Game" do
             it('returns a Echo command') { expect(subject).to eq(Commands::Echo) }
           end
 
-          describe "with 'Start'" do
-            subject { Commands::Factory.get_class('Start') }
+          describe "with 'StartGame'" do
+            subject { Commands::Factory.get_class('StartGame') }
 
-            it('returns a Start command') { expect(subject).to eq(Commands::Start) }
+            it('returns a StartGame command') { expect(subject).to eq(Commands::StartGame) }
           end
 
         end
@@ -141,7 +141,7 @@ RSpec.describe "The Game" do
         end
       end
 
-      describe Commands::Start do
+      describe Commands::StartGame do
         pending "Check Integration Tests"
       end
 
@@ -192,7 +192,7 @@ RSpec.describe "The Game" do
       describe "Command Start" do
         before do
           expect {
-            expect( subject.execute(GOOD_START_COMMAND_INPUT) ).to eq('started!')
+            expect( subject.execute(GOOD_START_COMMAND_INPUT) ).to include('Game Started!')
           }.to change { subject.state }.from(nil) #.to({})
         end
 
@@ -202,21 +202,22 @@ RSpec.describe "The Game" do
           expect(subject.state[:players]).to       eq(GOOD_START_COMMAND_PLAYERS_INPUT)
           expect(subject.state[:board]).to         eq({"H1"=>nil, "H2"=>nil, "R3"=>nil})
 
-          expect(subject.state[:turn].keys).to        match_array([:player_id, :commands])
+          expect(subject.state[:turn].keys).to        match_array([:player_id, :commands, :round])
+          expect(subject.state[:turn][:round]).to eq(1)
           expect(subject.state[:turn][:player_id]).to eq("H1")
           expect(subject.state[:turn][:commands]).to  eq(["RollDice"])
         end
 
         it "called second, raises error, does not change state" do
           expect {
-            expect { subject.execute(GOOD_START_COMMAND_INPUT) }.to raise_error(Commands::Start::AlreadyStartedError)
+            expect { subject.execute(GOOD_START_COMMAND_INPUT) }.to raise_error(Commands::StartGame::AlreadyStartedError)
           }.not_to change { subject.state }
         end
       end
 
       describe "Command RollDice" do
         before do
-          expect( subject.execute(GOOD_START_COMMAND_INPUT) ).to eq('started!')
+          expect( subject.execute(GOOD_START_COMMAND_INPUT) ).to include('Game Started!')
           expect( Dice ).to receive(:roll).and_return([1,2])
         end
 
@@ -229,7 +230,7 @@ RSpec.describe "The Game" do
         end
 
         it "changes the state of the commands" do
-          new_commands = {:player_id=>"H1", :commands=>["EndTurn"]}
+          new_commands = {:player_id=>"H1", :round=>1, :commands=>["EndTurn"]}
 
           expect { subject.execute(params) }.to change { subject.state[:turn] }.to(new_commands)
         end
@@ -241,7 +242,7 @@ RSpec.describe "The Game" do
 
       describe "Command EndTurn" do
         before do
-          expect( subject.execute(GOOD_START_COMMAND_INPUT) ).to eq('started!')
+          expect( subject.execute(GOOD_START_COMMAND_INPUT) ).to include('Game Started!')
         end
 
         let(:params) { {command: 'EndTurn', player: "H1"} }
@@ -255,18 +256,18 @@ RSpec.describe "The Game" do
         end
 
         it "determines the next player" do
-          expect {
-            subject.execute(params)
-          }.to change { subject.state[:turn] }.from(:player_id=>"H1", :commands=>["RollDice"]).to(:player_id=>"H2", :commands=>["RollDice"])
+          expect(subject.state[:turn]).to eq(:player_id=>"H1", :round=>1, :commands=>["RollDice"])
+          subject.execute(params)
+          expect(subject.state[:turn]).to eq(:player_id=>"H2", :round=>1, :commands=>["RollDice"])
         end
       end
 
       describe "A Full Round" do
         it "WIP" do
-          expect( subject.execute(GOOD_START_COMMAND_INPUT) ).to eq('started!')
+          expect( subject.execute(GOOD_START_COMMAND_INPUT) ).to include('Game Started!')
           expect( subject.execute(command: 'EndTurn', player: "H1") ).to eq(["H1 has ended their turn.", "H2, now it is your turn."])
           expect( subject.execute(command: 'EndTurn', player: "H1") ).to eq(["H1 has ended their turn.", "R3, now it is your turn."])
-          expect( subject.execute(command: 'EndTurn', player: "H1") ).to eq(["H1 has ended their turn.", "H1, now it is your turn."])
+          expect( subject.execute(command: 'EndTurn', player: "H1") ).to eq(["H1 has ended their turn.", "Round 1 has ended.", "Round 2 has started.", "H1, now it is your turn."])
         end
       end
 

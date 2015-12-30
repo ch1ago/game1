@@ -80,7 +80,7 @@ module Sample
         raise ParamsMalformed, "params must have a :command key, got '#{params}' instead"
       end
 
-      if @model.stateless? && params[:command] != 'Start'
+      if @model.stateless? && params[:command] != 'StartGame'
         raise NotStartedError
       end
     end
@@ -119,7 +119,7 @@ module Sample
         turn: {
           player_id: nil,
           # context: 'Sort',
-          # round: 0,
+          round: 0,
           commands: []
         },
         board: {},
@@ -133,11 +133,22 @@ module Sample
     end
 
     def move_to_next_turn
-      next_player_id = helper.get_next_player_id
+      next_player_id = helper.get_next_player_id || helper.get_first_player_id
 
       @state[:turn][:player_id] = next_player_id
-      @state[:turn][:commands] = ['RollDice']
+      @state[:turn][:commands] = ['RollDice'] # context
       next_player_id
+    end
+
+    def move_to_first_turn
+      @state[:turn][:player_id] = helper.get_first_player_id
+    end
+
+    def is_last_turn?
+      player_id     = @state[:turn][:player_id]
+      player_index  = @state[:players_order].index(player_id)
+      players_count = @state[:players_order].count
+      player_index == players_count-1
     end
 
     class Helper
@@ -152,13 +163,16 @@ module Sample
         players_count = @state[:players_order].count
 
         is_nil  = player_index.nil?
-        is_last = player_index == players_count-1
 
-        if is_nil || is_last
-          @state[:players_order].first
+        if is_nil
+          get_first_player_id
         else
           @state[:players_order][player_index+1]
         end
+      end
+
+      def get_first_player_id
+        @state[:players_order].first
       end
     end
 
@@ -187,10 +201,10 @@ module Sample
 
       def self.get_class(string)
         case string
-        when 'Echo'     then Commands::Echo
-        when 'Start'    then Commands::Start
-        when 'RollDice' then Commands::RollDice
-        when 'EndTurn'  then Commands::EndTurn
+        when 'Echo'      then Commands::Echo
+        when 'StartGame' then Commands::StartGame
+        when 'RollDice'  then Commands::RollDice
+        when 'EndTurn'   then Commands::EndTurn
         else raise NotFoundError, "Command was '#{string}' Not Found"
         end
       end
@@ -205,13 +219,7 @@ module Sample
       end
     end
 
-    class Echo < Base
-      def execute
-        params
-      end
-    end
-
-    class Start < Base
+    class StartGame < Base
       class AlreadyStartedError < GameError
       end
 
@@ -223,9 +231,9 @@ module Sample
 
         @params[:players].each { |pid, h| @model.add_player(pid, h) }
 
-        @model.move_to_next_turn
-
-        output = "started!"
+        output = []
+        output << "Game Started!"
+        output += StartRound.new(@model, {}).execute
         output
       end
 
@@ -243,6 +251,64 @@ module Sample
 
       def expected_params_keys
         [:command, :players]
+      end
+    end
+
+    class StartRound < Base
+      def execute
+        output = []
+        round_id = @model.state[:turn][:round].to_i
+        @model.state[:turn][:round] = round_id += 1
+        output << "Round #{round_id} has started."
+
+        output += StartTurn.new(@model, {}).execute
+        output
+      end
+    end
+
+    class StartTurn < Base
+      def execute
+        output = []
+
+        next_player_id = @model.move_to_next_turn
+        output << "#{next_player_id}, now it is your turn."
+
+        output
+      end
+    end
+
+    class EndTurn < Base
+      def execute
+        output = []
+
+        player_id = @params[:player]
+        output << "#{player_id} has ended their turn."
+
+        if @model.is_last_turn?
+          output += EndRound.new(@model, {}).execute
+        else
+          output += StartTurn.new(@model, {}).execute
+        end
+
+        output
+      end
+    end
+
+    class EndRound < Base
+      def execute
+        output = []
+
+        round_id = @model.state[:turn][:round]
+        output << "Round #{round_id} has ended."
+
+        output += StartRound.new(@model, {}).execute
+        output
+      end
+    end
+
+    class Echo < Base
+      def execute
+        params
       end
     end
 
@@ -267,19 +333,6 @@ module Sample
       end
     end
 
-    class EndTurn < Base
-      def execute
-        output = []
-
-        player_id = @params[:player]
-        output << "#{player_id} has ended their turn."
-
-        next_player_id = @model.move_to_next_turn
-        output << "#{next_player_id}, now it is your turn."
-
-        output
-      end
-    end
   end
 
 
