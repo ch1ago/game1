@@ -57,7 +57,7 @@ RSpec.describe "The Game" do
         describe ".execute" do
           it 'raises Sample::Controller::NotStartedError' do
             expect {
-              subject.execute(some: :args)
+              subject.execute(command: 'Echo')
             }.to raise_error(Sample::Controller::NotStartedError)
           end
         end
@@ -81,24 +81,18 @@ RSpec.describe "The Game" do
         end
 
         describe ".execute" do
-
           before do
-            command = double('double', execute: [:output, :new_state])
-            expect(Commands::Factory).to receive(:fab).and_return(command)
+            command = double("double", execute: :output)
+            expect(Commands::Echo).to receive(:new).and_return(command)
           end
 
-          it 'delegates a command object, created by delegating to Commands::Factory' do
-            subject.execute(:args)
+          it 'invokes Commands::Factory.get_class' do
+            allow(Commands::Factory).to receive(:get_class).and_call_original
+            subject.execute(command: 'Echo')
           end
 
           it 'delegates a command object, returns its output' do
-            expect(subject.execute(:args)).to eq(:output)
-          end
-
-          it 'delegates a command object, changes controller state' do
-            expect {
-              subject.execute(:args)
-            }.to change { subject.state }.from(initial_state).to(:new_state)
+            expect(subject.execute(command: 'Echo')).to eq(:output)
           end
         end
 
@@ -116,24 +110,24 @@ RSpec.describe "The Game" do
 
     describe "Commands" do
       describe Commands::Factory do
-        describe ".fab" do
+        describe ".get_class" do
 
           describe "with 'blank'" do
-            subject { Commands::Factory.fab(command: '') }
+            subject { Commands::Factory.get_class('') }
 
             it('is invalid') { expect { subject }.to raise_error(Commands::Factory::NotFoundError) }
           end
 
           describe "with 'Echo'" do
-            subject { Commands::Factory.fab(command: 'Echo') }
+            subject { Commands::Factory.get_class('Echo') }
 
-            it('returns a Echo command') { expect(subject).to be_a(Commands::Echo) }
+            it('returns a Echo command') { expect(subject).to eq(Commands::Echo) }
           end
 
           describe "with 'Start'" do
-            subject { Commands::Factory.fab(GOOD_START_COMMAND_INPUT) }
+            subject { Commands::Factory.get_class('Start') }
 
-            it('returns a Start command') { expect(subject).to be_a(Commands::Start) }
+            it('returns a Start command') { expect(subject).to eq(Commands::Start) }
           end
 
         end
@@ -141,11 +135,9 @@ RSpec.describe "The Game" do
 
       describe Commands::Echo do
         describe '.execute' do
-          subject { described_class.new(:params) }
-          let(:result) { subject.execute(:current_state) }
+          subject { described_class.new(:current_state, :params) }
 
-          it('returns[0] (the output) as the same params data') { expect(result[0]).to eq(:params) }
-          it('returns[1] (the new state) as the same current state') { expect(result[1]).to eq(:current_state) }
+          it('returns params') { expect(subject.execute).to eq(:params) }
         end
       end
 
@@ -154,6 +146,10 @@ RSpec.describe "The Game" do
       end
 
       describe Commands::RollDice do
+        pending "Check Integration Tests"
+      end
+
+      describe Commands::EndTurn do
         pending "Check Integration Tests"
       end
     end
@@ -238,11 +234,29 @@ RSpec.describe "The Game" do
         it "outputs the roll result" do
           expect( subject.execute(params) ).to include("H1 rolled 2d6: 1, 2.")
         end
-
-        # it "" do
-        # end
       end
 
+      describe "Command EndTurn" do
+        before do
+          expect( subject.execute(GOOD_START_COMMAND_INPUT) ).to eq('started!')
+        end
+
+        let(:params) { {command: 'EndTurn', player: "H1"} }
+
+        it "outputs the end turn" do
+          expect( subject.execute(params) ).to include("H1 has ended their turn.")
+        end
+
+        it "outputs the next turn" do
+          expect( subject.execute(params) ).to include("H2, now it is your turn.")
+        end
+
+        it "determines the next player" do
+          expect {
+            subject.execute(params)
+          }.to change { subject.state[:commands] }.from("H1"=>["RollDice"]).to("H2"=>["RollDice"])
+        end
+      end
 
     end
   end

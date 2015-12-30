@@ -47,6 +47,9 @@ module Sample
     class NotStartedError < GameError
     end
 
+    class ParamsMalformed < GameError
+    end
+
     def_delegator :@model, :state
 
     def initialize(state)
@@ -58,15 +61,25 @@ module Sample
     # end
 
     def execute(params={})
-      check_allowed!(params)
+      check!(params)
 
-      command = Commands::Factory.fab(params)
-      return @model.execute(command)
+      command_class = Commands::Factory.get_class(params[:command])
+      command = command_class.new(@model, params)
+
+      return command.execute
     end
 
     private
 
-    def check_allowed!(params)
+    def check!(params)
+      if not params.is_a?(Hash)
+        raise ParamsMalformed, "params must be a Hash, got '#{params}':#{params.class} instead"
+      end
+
+      if params[:command].nil?
+        raise ParamsMalformed, "params must have a :command key, got '#{params}' instead"
+      end
+
       if @model.stateless? && params[:command] != 'Start'
         raise NotStartedError
       end
@@ -94,12 +107,33 @@ module Sample
       state.nil?
     end
 
-    def execute(command)
-      result = command.execute(state)
-      @state = result[1]
-      return result[0]
+    def create_state_template
+      @state = {
+        players_order: [],
+        players: {},
+        commands: {},
+        board: {},
+      }
     end
 
+    def add_player(player_id, hash)
+      @state[:players_order] << player_id
+      @state[:players][player_id] = hash
+      @state[:board][player_id]   = nil
+    end
+
+    def determine_next_turn(foo)
+      if foo
+        next_player_id = "H1"
+        @state[:commands] = {next_player_id => ['RollDice']} # next turn, untested
+        next_player_id
+      else
+        # next_player_id = @params[:player] + 1
+        next_player_id = "H2"
+        @state[:commands] = {next_player_id => ['RollDice']}
+        next_player_id
+      end
+    end
   end
 
 
@@ -123,31 +157,29 @@ module Sample
       class NotFoundError < GameError
       end
 
-      def self.fab(params)
-        params.is_a?(Hash) or raise NotFoundError, "data params must be a Hash, got '#{params}':#{params.class} instead"
-
-        klass = case params[:command]
+      def self.get_class(string)
+        case string
         when 'Echo'     then Commands::Echo
         when 'Start'    then Commands::Start
         when 'RollDice' then Commands::RollDice
-        else raise NotFoundError, "Command was '#{params[:command]}' Not Found"
+        when 'EndTurn'  then Commands::EndTurn
+        else raise NotFoundError, "Command was '#{string}' Not Found"
         end
-
-        klass.new(params)
       end
     end
 
     class Base
       attr_reader :params
 
-      def initialize(params)
+      def initialize(model, params)
         @params = params
+        @model  = model
       end
     end
 
     class Echo < Base
-      def execute(state)
-        [params, state]
+      def execute
+        params
       end
     end
 
@@ -155,42 +187,29 @@ module Sample
       class AlreadyStartedError < GameError
       end
 
-      def execute(state)
-        check_unstarted!(state)
-        check_params!(params)
+      def execute
+        check_unstarted!
+        check_params!
+
+        @model.create_state_template
+
+        @params[:players].each { |pid, h| @model.add_player(pid, h) }
+
+        @model.determine_next_turn(true)
 
         output = "started!"
-
-        # new state template
-        state = {
-          players_order: [],
-          players: {},
-          commands: {},
-          board: {},
-        }
-
-        # fill state template
-        params[:players].each do |pid, phash|
-          state[:players_order] << pid
-          state[:players][pid] = phash
-          state[:board][pid]   = nil
-        end
-
-        # determine next turn
-        state[:commands] = {'H1' => ['RollDice']} # next turn, untested
-
-        [output, state]
+        output
       end
 
       private
 
-      def check_unstarted!(state)
-        state.nil? or raise AlreadyStartedError
+      def check_unstarted!
+        @model.state.nil? or raise AlreadyStartedError
       end
 
-      def check_params!(params)
-        if params.keys != expected_params_keys
-          raise InputError, "expected keys '#{expected_params_keys}',\t found keys: #{params.keys}"
+      def check_params!
+        if @params.keys != expected_params_keys
+          raise InputError, "expected keys '#{expected_params_keys}',\t found keys: #{@params.keys}"
         end
       end
 
@@ -200,39 +219,36 @@ module Sample
     end
 
     class RollDice < Base
-      def execute(state)
+      def execute
         output = []
 
         d = Dice.roll(2)
 
-        output << "#{params[:player]} rolled 2d6: #{d.join(', ')}."
+        output << "#{@params[:player]} rolled 2d6: #{d.join(', ')}."
 
-        state[:board][params[:player]] = d
+        @model.state[:board][@params[:player]] = d
         # has_two_equal_dice = d.uniq.size==1
         # if has_two_equal_dice
         #  output << "Explosion, roll again!"
         # else
-        state[:commands] = {'H1' => ['EndTurn']} # untested
+        @model.state[:commands] = {'H1' => ['EndTurn']} # untested
         # end
 
-        [output, state]
+        output
       end
     end
 
     class EndTurn < Base
-      def execute(state)
+      def execute
         output = []
 
-        player_id = params[:player]
-        state[:commands][player_id] = []
+        player_id = @params[:player]
         output << "#{player_id} has ended their turn."
 
-        # next_player_id = params[:player] + 1
-        next_player_id = "H2"
+        next_player_id = @model.determine_next_turn(false)
         output << "#{next_player_id}, now it is your turn."
-        state[:commands][next_player_id] = ['RollDice']
 
-        [output, state]
+        output
       end
     end
   end
