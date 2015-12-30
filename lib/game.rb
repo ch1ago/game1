@@ -46,7 +46,7 @@ module Sample
   class Controller
     extend Forwardable
 
-    def_delegator :@model, :state
+    def_delegators :@model, :state
 
     def initialize(state)
       @model = Model.new(state)
@@ -116,7 +116,7 @@ module Sample
 
     attr_reader :state
 
-    def_delegator :helper, :player_id
+    def_delegators :helper, :player_id, :ordered_player_keys, :players_count
 
     def initialize(state)
       @state = state
@@ -150,11 +150,19 @@ module Sample
       @state[:board][player_id]   = nil
     end
 
+    def increase_round
+      @state[:turn][:round] = round + 1
+    end
+
+    def round
+      @state[:turn][:round].to_i
+    end
+
     def move_to_next_turn
       next_player_id = helper.get_next_player_id || helper.get_first_player_id
 
       @state[:turn][:player_id] = next_player_id
-      @state[:turn][:commands] = ['RollDice'] # context
+      @state[:turn][:commands] = ['RollDice'] # context SomethingMadeUp
       next_player_id
     end
 
@@ -163,8 +171,7 @@ module Sample
     end
 
     def is_last_turn?
-      player_index  = @state[:players_order].index(player_id)
-      players_count = @state[:players_order].count
+      player_index  = ordered_player_keys.index(player_id)
       player_index == players_count-1
     end
 
@@ -174,21 +181,27 @@ module Sample
 
     class Helper
       attr_reader :state
+
       def initialize(state)
         @state = state
       end
 
       def get_next_player_id
-        player_index  = @state[:players_order].index(player_id)
-        players_count = @state[:players_order].count
+        player_index  = ordered_player_keys.index(player_id)
 
-        is_nil  = player_index.nil?
-
-        if is_nil
+        if player_index.nil?
           get_first_player_id
         else
-          @state[:players_order][player_index+1]
+          ordered_player_keys[player_index+1]
         end
+      end
+
+      def ordered_player_keys
+        @state[:players_order]
+      end
+
+      def players_count
+        ordered_player_keys.count
       end
 
       def get_first_player_id
@@ -303,9 +316,9 @@ module Sample
     class StartRound < Base
       def execute
         output = []
-        round_id = @model.state[:turn][:round].to_i
-        @model.state[:turn][:round] = round_id += 1
-        output << "Round #{round_id} has started."
+
+        round = @model.increase_round
+        output << "Round #{round} has started."
 
         output += StartTurn.new(@model, {}).execute
         output
@@ -353,8 +366,8 @@ module Sample
       def execute
         output = []
 
-        round_id = @model.state[:turn][:round]
-        output << "Round #{round_id} has ended."
+        round = @model.round
+        output << "Round #{round} has ended."
 
         output += StartRound.new(@model, {}).execute
         output
