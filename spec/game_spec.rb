@@ -55,10 +55,10 @@ RSpec.describe "The Game" do
         end
 
         describe ".execute" do
-          it 'raises Sample::Commands::NotStartedError' do
+          it 'raises Commands::NotStartedError' do
             expect {
               subject.execute(command: 'Echo')
-            }.to raise_error(Sample::Commands::NotStartedError)
+            }.to raise_error(Commands::NotStartedError)
           end
         end
 
@@ -88,8 +88,8 @@ RSpec.describe "The Game" do
             expect(Commands::Echo).to receive(:new).and_return(command)
           end
 
-          it 'invokes Commands::Factory.get_class' do
-            allow(Commands::Factory).to receive(:get_class).and_call_original
+          it 'invokes Controller::ParamsCommandFactory.fab' do
+            allow(Controller::ParamsCommandFactory).to receive(:fab).and_call_original
             subject.execute(command: 'Echo')
           end
 
@@ -102,6 +102,56 @@ RSpec.describe "The Game" do
 
     end
 
+    describe Controller::ParamsCommandFactory do
+      describe ".fab(model, params)" do
+
+        subject { described_class.fab(model, params) }
+
+        describe "model" do
+          describe "model is nil" do
+            let(:model) { Model.new(nil) }
+
+            describe "params" do
+              describe "params is nil" do
+                let (:params) { nil }
+
+                it('is invalid') { expect { subject }.to raise_error(Controller::ParamsCommandFactory::ParamsMalformed) }
+              end
+
+              describe "params is {}" do
+                let (:params) { {} }
+
+                it('is invalid') { expect { subject }.to raise_error(Controller::ParamsCommandFactory::ParamsMalformed) }
+              end
+
+              describe "params is {command: 'StartGame'}" do
+                let (:params) { {command: 'StartGame'} }
+
+                it('is invalid') { expect { subject }.to raise_error(Commands::InputError) }
+              end
+
+              describe "params is {command: 'StartGame', players: []}" do
+                let (:params) { {command: 'StartGame', players: []} }
+
+                it('is valid') { expect(subject).to be_a(Commands::StartGame) }
+              end
+            end
+          end
+
+          describe "model is present" do
+            let(:model) { Model.new({has: :something}) }
+
+            describe "params is {command: 'StartGame'}" do
+              let (:params) { {command: 'StartGame'} }
+
+              it('is invalid') { expect { subject }.to raise_error(Commands::StartGame::AlreadyStartedError) }
+            end
+          end
+        end
+
+      end
+    end
+
   #####
  #     #  ####  #    # #    #   ##   #    # #####   ####
  #       #    # ##  ## ##  ##  #  #  ##   # #    # #
@@ -111,30 +161,6 @@ RSpec.describe "The Game" do
   #####   ####  #    # #    # #    # #    # #####   ####
 
     describe "Commands" do
-      describe Commands::Factory do
-        describe ".get_class" do
-
-          describe "with 'blank'" do
-            subject { Commands::Factory.get_class('') }
-
-            it('is invalid') { expect { subject }.to raise_error(Commands::Factory::NotFoundError) }
-          end
-
-          describe "with 'Echo'" do
-            subject { Commands::Factory.get_class('Echo') }
-
-            it('returns a Echo command') { expect(subject).to eq(Commands::Echo) }
-          end
-
-          describe "with 'StartGame'" do
-            subject { Commands::Factory.get_class('StartGame') }
-
-            it('returns a StartGame command') { expect(subject).to eq(Commands::StartGame) }
-          end
-
-        end
-      end
-
       describe Commands::Echo do
         describe '.execute' do
           subject { described_class.new(:current_state, :params) }
@@ -183,10 +209,10 @@ RSpec.describe "The Game" do
 
       describe "Any Command" do
         describe "called before Start" do
-          it 'raises Sample::Commands::NotStartedError' do
+          it 'raises Commands::NotStartedError' do
             expect {
               subject.execute({command: 'Echo'})
-            }.to raise_error(Sample::Commands::NotStartedError)
+            }.to raise_error(Commands::NotStartedError)
           end
         end
       end

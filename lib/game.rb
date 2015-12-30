@@ -1,5 +1,7 @@
 # http://patorjk.com/software/taag/#p=display&f=Banner&t=Commands
 
+require 'singleton'
+
 module Sample
 
   class GameError < StandardError
@@ -44,9 +46,6 @@ module Sample
   class Controller
     extend Forwardable
 
-    class ParamsMalformed < GameError
-    end
-
     def_delegator :@model, :state
 
     def initialize(state)
@@ -58,25 +57,45 @@ module Sample
     # end
 
     def execute(params={})
-      check!(params)
-
-      command_class = Commands::Factory.get_class(params[:command])
-      command = command_class.new(@model, params)
-
-      command.validate!
-
-      return command.execute
+      command = ParamsCommandFactory.fab(@model, params)
+      command.execute
     end
 
-    private
+    class ParamsCommandFactory
+      include Singleton
 
-    def check!(params)
-      if not params.is_a?(Hash)
-        raise ParamsMalformed, "params must be a Hash, got '#{params}':#{params.class} instead"
+      class ParamsMalformed < GameError
       end
 
-      if params[:command].nil?
-        raise ParamsMalformed, "params must have a :command key, got '#{params}' instead"
+      class NotFoundError < GameError
+      end
+
+      def self.fab(model, params)
+        instance.check!(params)
+
+        klass = instance.get_class(params[:command])
+
+        klass.new(model, params).tap(&:validate!)
+      end
+
+      def get_class(string)
+        case string
+        when 'Echo'      then Commands::Echo
+        when 'StartGame' then Commands::StartGame
+        when 'RollDice'  then Commands::RollDice
+        when 'EndTurn'   then Commands::EndTurn
+        else raise NotFoundError, "Command was '#{string}' Not Found"
+        end
+      end
+
+      def check!(params)
+        if not params.is_a?(Hash)
+          raise ParamsMalformed, "params must be a Hash, got '#{params}':#{params.class} instead"
+        end
+
+        if params[:command].nil?
+          raise ParamsMalformed, "params must have a :command key, got '#{params}' instead"
+        end
       end
     end
 
@@ -200,22 +219,6 @@ module Sample
     end
 
     class NotStartedError < GameError
-    end
-
-    class Factory
-
-      class NotFoundError < GameError
-      end
-
-      def self.get_class(string)
-        case string
-        when 'Echo'      then Commands::Echo
-        when 'StartGame' then Commands::StartGame
-        when 'RollDice'  then Commands::RollDice
-        when 'EndTurn'   then Commands::EndTurn
-        else raise NotFoundError, "Command was '#{string}' Not Found"
-        end
-      end
     end
 
     class Base
