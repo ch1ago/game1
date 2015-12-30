@@ -55,10 +55,10 @@ RSpec.describe "The Game" do
         end
 
         describe ".execute" do
-          it 'raises Sample::Controller::NotStartedError' do
+          it 'raises Sample::Commands::NotStartedError' do
             expect {
               subject.execute(command: 'Echo')
-            }.to raise_error(Sample::Controller::NotStartedError)
+            }.to raise_error(Sample::Commands::NotStartedError)
           end
         end
 
@@ -82,7 +82,9 @@ RSpec.describe "The Game" do
 
         describe ".execute" do
           before do
-            command = double("double", execute: :output)
+            command = double
+            expect(command).to receive(:validate!).and_return(nil)
+            expect(command).to receive(:execute).and_return(:output)
             expect(Commands::Echo).to receive(:new).and_return(command)
           end
 
@@ -181,10 +183,10 @@ RSpec.describe "The Game" do
 
       describe "Any Command" do
         describe "called before Start" do
-          it 'raises Sample::Controller::NotStartedError' do
+          it 'raises Sample::Commands::NotStartedError' do
             expect {
               subject.execute({command: 'Echo'})
-            }.to raise_error(Sample::Controller::NotStartedError)
+            }.to raise_error(Sample::Commands::NotStartedError)
           end
         end
       end

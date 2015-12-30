@@ -44,9 +44,6 @@ module Sample
   class Controller
     extend Forwardable
 
-    class NotStartedError < GameError
-    end
-
     class ParamsMalformed < GameError
     end
 
@@ -66,6 +63,8 @@ module Sample
       command_class = Commands::Factory.get_class(params[:command])
       command = command_class.new(@model, params)
 
+      command.validate!
+
       return command.execute
     end
 
@@ -78,10 +77,6 @@ module Sample
 
       if params[:command].nil?
         raise ParamsMalformed, "params must have a :command key, got '#{params}' instead"
-      end
-
-      if @model.stateless? && params[:command] != 'StartGame'
-        raise NotStartedError
       end
     end
 
@@ -204,6 +199,9 @@ module Sample
     class InputError < GameError
     end
 
+    class NotStartedError < GameError
+    end
+
     class Factory
 
       class NotFoundError < GameError
@@ -227,16 +225,44 @@ module Sample
         @params = params
         @model  = model
       end
+
+      def validate!
+        # not implemented
+      end
+
+      protected
+
+      def validates_presence_of_params!(*param_keys)
+        if validates_presence_of_params(*param_keys)
+          raise InputError, "expected params '#{param_keys}', but found #{@params.keys}"
+        end
+      end
+
+      def validates_presence_of_params(*param_keys)
+        @params.keys != param_keys
+      end
+
+      def validates_blankness_of(*values)
+        values.map(&:nil?).inject(:&)
+      end
+
+      def validates_presence_of(*values)
+        values = [true] + values
+        values.inject(:&)
+      end
     end
 
-    class StartGame < Base
+    class Base2 < Base
+      def validate!
+        validates_presence_of(@model.state) or raise Commands::NotStartedError
+      end
+    end
+
+    class StartGame < Base2
       class AlreadyStartedError < GameError
       end
 
       def execute
-        check_unstarted!
-        check_params!
-
         @model.create_state_template
 
         @params[:players].each { |pid, h| @model.add_player(pid, h) }
@@ -247,24 +273,13 @@ module Sample
         output
       end
 
-      private
-
-      def check_unstarted!
-        @model.state.nil? or raise AlreadyStartedError
-      end
-
-      def check_params!
-        if @params.keys != expected_params_keys
-          raise InputError, "expected keys '#{expected_params_keys}',\t found keys: #{@params.keys}"
-        end
-      end
-
-      def expected_params_keys
-        [:command, :players]
+      def validate!
+        validates_blankness_of(@model.state) or raise AlreadyStartedError
+        validates_presence_of_params! :command, :players
       end
     end
 
-    class StartRound < Base
+    class StartRound < Base2
       def execute
         output = []
         round_id = @model.state[:turn][:round].to_i
@@ -276,7 +291,7 @@ module Sample
       end
     end
 
-    class StartTurn < Base
+    class StartTurn < Base2
       def execute
         output = []
 
@@ -291,7 +306,7 @@ module Sample
       end
     end
 
-    class EndTurn < Base
+    class EndTurn < Base2
       def execute
         output = []
 
@@ -308,7 +323,7 @@ module Sample
       end
     end
 
-    class EndRound < Base
+    class EndRound < Base2
       def execute
         output = []
 
@@ -320,13 +335,13 @@ module Sample
       end
     end
 
-    class Echo < Base
+    class Echo < Base2
       def execute
         params
       end
     end
 
-    class RollDice < Base
+    class RollDice < Base2
       def execute
         output = []
 
@@ -345,9 +360,14 @@ module Sample
 
         output
       end
+
+      def validate!
+        validates_presence_of_params! :command, :player
+      end
+
     end
 
-    class PlayRobotTurn < Base
+    class PlayRobotTurn < Base2
       def execute
         output = []
 
