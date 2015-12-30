@@ -221,6 +221,9 @@ module Sample
     class NotStartedError < GameError
     end
 
+    class NotYourTurnError < GameError
+    end
+
     class Base
       attr_reader :params
 
@@ -253,15 +256,23 @@ module Sample
         values = [true] + values
         values.inject(:&)
       end
+
+      def validates_equality_of(a, b)
+        !a.nil? && a == b
+      end
     end
 
     class Base2 < Base
       def validate!
         validates_presence_of(@model.state) or raise Commands::NotStartedError
       end
+
+      def validate_turn! # untested
+        validates_equality_of(@params[:player], @model.player_id) or raise NotYourTurnError, "#{@params[:player]}, this is #{@model.player_id} turn."
+      end
     end
 
-    class StartGame < Base2
+    class StartGame < Base
       class AlreadyStartedError < GameError
       end
 
@@ -313,8 +324,7 @@ module Sample
       def execute
         output = []
 
-        player_id = @params[:player]
-        output << "#{player_id} has ended their turn."
+        output << "#{@model.player_id} has ended their turn."
 
         if @model.is_last_turn?
           output += EndRound.new(@model, {}).execute
@@ -323,6 +333,12 @@ module Sample
         end
 
         output
+      end
+
+      def validate!
+        super
+        validates_presence_of_params! :command, :player
+        validate_turn! # untested
       end
     end
 
@@ -365,9 +381,10 @@ module Sample
       end
 
       def validate!
+        super
         validates_presence_of_params! :command, :player
+        validate_turn!
       end
-
     end
 
     class PlayRobotTurn < Base2

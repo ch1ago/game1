@@ -291,10 +291,10 @@ RSpec.describe "The Game" do
       end
 
       describe "A Full Round" do
-        it "WIP" do
+        it "Works" do
           expect( subject.execute(GOOD_START_COMMAND_INPUT) ).to include('Game Started!')
           expect( subject.execute(command: 'EndTurn', player: "H1") ).to eq(["H1 has ended their turn.", "H2, now it is your turn."])
-          expect( subject.execute(command: 'EndTurn', player: "H1") ).to eq(["H1 has ended their turn.", "R3, now it is your turn.", "R3 is a mindless Robot!", "R3 doesn't know what to do!", "R3 has ended their turn.", "Round 1 has ended.", "Round 2 has started.", "H1, now it is your turn."])
+          expect( subject.execute(command: 'EndTurn', player: "H2") ).to eq(["H2 has ended their turn.", "R3, now it is your turn.", "R3 is a mindless Robot!", "R3 doesn't know what to do!", "R3 has ended their turn.", "Round 1 has ended.", "Round 2 has started.", "H1, now it is your turn."])
         end
       end
 
