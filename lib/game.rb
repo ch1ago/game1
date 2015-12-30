@@ -151,14 +151,11 @@ module Sample
         player_index  = @state[:players_order].index(player_id)
         players_count = @state[:players_order].count
 
-        case
-        when player_index.nil?
+        is_nil  = player_index.nil?
+        is_last = player_index == players_count-1
+
+        if is_nil || is_last
           @state[:players_order].first
-        when player_index == players_count-1 # last value
-          raise "foo #{player_index} #{players_count}"
-          # @state[:players_order].first
-          # EndRound
-          "B"
         else
           @state[:players_order][player_index+1]
         end
