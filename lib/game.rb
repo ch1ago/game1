@@ -1,6 +1,10 @@
 # http://patorjk.com/software/taag/#p=display&f=Banner&t=Commands
 
 require 'singleton'
+require 'json'
+require 'active_support'
+require 'active_support/all'
+# require 'active_support/core_ext'
 
 module Sample
 
@@ -44,17 +48,10 @@ module Sample
   #####   ####  #    #   #   #    #  ####  ###### ###### ###### #    #
 
   class Controller
-    extend Forwardable
 
-    def_delegators :@model, :state
-
-    def initialize(state)
-      @model = Model.new(state)
+    def initialize(model)
+      @model = model
     end
-
-    # def state
-    #   @model.state # dup.freeze ???
-    # end
 
     def execute(params={})
       command = ParamsCommandFactory.fab(@model, params)
@@ -110,16 +107,29 @@ module Sample
  #     # #    # #    # #      #
  #     #  ####  #####  ###### ######
 
-  # due to delegation, no need to test model yet
   class Model
     extend Forwardable
+    def_delegators :helper, :player_id, :ordered_player_keys, :players_count
+
+    module Concerns
+      module LoadableState
+        def load(string)
+          @state = JSON.parse(string)
+          self
+        end
+
+        def unload
+          state.to_json
+        end
+      end
+    end
+
+    include Concerns::LoadableState
 
     attr_reader :state
 
-    def_delegators :helper, :player_id, :ordered_player_keys, :players_count
-
     def initialize(state)
-      @state = state
+      @state = state && state.with_indifferent_access
     end
 
     def helper
@@ -269,7 +279,7 @@ module Sample
         end
 
         def validates_started!
-          validates_presence_of(@model.state) or raise Commands::Validations::Errors::NotStarted
+          @model.stateless? and raise Commands::Validations::Errors::NotStarted
         end
 
         def validates_turn! # untested

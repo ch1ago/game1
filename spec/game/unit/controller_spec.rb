@@ -5,23 +5,11 @@ module Sample
 
     describe Controller do
 
-      subject { described_class.new(initial_state) }
+      subject { described_class.new(model) }
 
-      describe "with state = nil" do
+      describe "with a stateless model" do
 
-        let(:initial_state) { nil }
-
-        describe ".new" do
-          it 'returns Controller' do
-            expect(subject).to be_a(Controller)
-          end
-        end
-
-        describe ".state" do
-          it 'returns the current state' do
-            expect(subject.state).to eq(nil)
-          end
-        end
+        let(:model) { double("Model", stateless?: true) }
 
         describe ".execute" do
           it 'raises Commands::Validations::Errors::NotStarted' do
@@ -33,21 +21,9 @@ module Sample
 
       end
 
-      describe 'with state = {has_state: true}' do
+      describe "with a stateful model" do
 
-        let(:initial_state) { {has_state: true} }
-
-        describe ".new" do
-          it 'returns Controller' do
-            expect(subject).to be_a(Controller)
-          end
-        end
-
-        describe ".state" do
-          it 'returns the current state' do
-            expect(subject.state).to eq({has_state: true})
-          end
-        end
+        let(:model) { double("Model", stateless?: false) }
 
         describe ".execute" do
           before do

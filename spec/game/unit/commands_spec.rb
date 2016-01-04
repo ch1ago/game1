@@ -6,7 +6,7 @@ module Sample
     describe "Commands" do
       describe Commands::Echo do
         describe '.execute' do
-          subject { described_class.new(:current_state, :params) }
+          subject { described_class.new(:model, :params) }
 
           it('returns params') { expect(subject.execute).to eq(:params) }
         end
